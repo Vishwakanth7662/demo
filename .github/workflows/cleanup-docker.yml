@@ -1,0 +1,47 @@
+# Note: Synchronized Workflow, if you want to edit this please do so in the following repository: https://github.com/Combyne-Ag/github-actions
+name: Cleanup Docker Image
+
+on:
+  workflow_call:
+    secrets: 
+      SERVICE_NAME: 
+        required: true
+
+jobs:
+  cleanup:
+    name: Cleanup Docker Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Check if Image exists
+        uses: xSAVIKx/artifact-exists-action@v0
+        id: check-image
+        with: 
+          name: docker-image-name-${{ secrets.SERVICE_NAME }}
+
+      - name: Download Image Name
+        if: steps.check-image.outputs.exists == 'true'
+        uses: actions/download-artifact@v3
+        with:
+          name: docker-image-name-${{ secrets.SERVICE_NAME }}
+
+      - name: Set Image Name
+        if: steps.check-image.outputs.exists == 'true'
+        run: |
+          # Read the image name from the file 
+          while read line; do
+            imageName=$line
+          done < .docker-image-name-${{ secrets.SERVICE_NAME }}
+          echo "Image Name: $imageName"
+          newImageName=$(echo "$imageName" | tr :\/ _)
+          echo "IMAGE_NAME=action_image_artifact_$newImageName" >> $GITHUB_ENV
+
+      # Deletes the build files stored as an artifact
+      - name: Delete Artifacts
+        if: steps.check-image.outputs.exists == 'true'
+        uses: geekyeggo/delete-artifact@v2
+        with:
+          name: |
+            docker-image-name-${{ secrets.SERVICE_NAME }}
+            ${{ env.IMAGE_NAME }}

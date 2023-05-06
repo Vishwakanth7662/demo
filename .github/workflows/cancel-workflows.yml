@@ -1,0 +1,22 @@
+# Note: Synchronized Workflow, if you want to edit this please do so in the following repository: https://github.com/Combyne-Ag/github-actions
+name: Cancel Workflows
+
+on:
+  workflow_call:
+    inputs:
+      workflowName:
+        required: true
+        type: string
+
+jobs:
+  cancel-workflow:
+    name: Cancel Queued/In Progress Workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Cancel Queued/In Progress Workflows
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          access_token: ${{ github.token }}
+          workflow_id: ${{ inputs.workflowName }}

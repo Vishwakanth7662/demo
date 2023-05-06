@@ -1,0 +1,44 @@
+name: Dev
+
+on:
+  push:
+    branches: [master]
+    # Ignore any documentation changes
+    paths-ignore: ["*.md"]
+
+jobs:
+
+  cancel-workflows:
+    uses: ./.github/workflows/cancel-workflows.yml
+    with:
+      workflowName: dev.yml
+
+  build:
+    uses: ./.github/workflows/build-docker.yml
+    needs: [cancel-workflows]
+    with: 
+      environment: dev
+      isWeb: false
+    secrets:
+      AWS_ACCESS_KEY: ${{ secrets.COMBYNE_AUTH_API_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_KEY: ${{ secrets.COMBYNE_AUTH_API_AWS_SECRET_ACCESS_KEY }}
+      SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
+
+
+  deploy:
+    uses: ./.github/workflows/deployment.yml
+    needs: [build]
+    with: 
+      environment: dev
+    secrets:
+      AWS_ACCESS_KEY: ${{ secrets.COMBYNE_AUTH_API_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_KEY: ${{ secrets.COMBYNE_AUTH_API_AWS_SECRET_ACCESS_KEY }}
+      SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
+      ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+
+  cleanup-docker: 
+    uses: ./.github/workflows/cleanup-docker.yml
+    needs: [deploy]
+    if: ${{ always() }}
+    secrets: 
+      SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
