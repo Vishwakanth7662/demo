@@ -63,7 +63,7 @@ jobs:
           if [ "${{ inputs.environment }}" == "release" ]; then
             echo "CONTAINER_SERVICE_NAME=combyne-prod-${{ secrets.SERVICE_NAME }}" >> $GITHUB_ENV
           else 
-            echo "CONTAINER_SERVICE_NAME=combyne-${{ inputs.environment }}-${{ secrets.SERVICE_NAME }}" >> $GITHUB_ENV
+            echo "CONTAINER_SERVICE_NAME=combyne-${{ secrets.SERVICE_NAME }}" >> $GITHUB_ENV
           fi
 
       - name: Download Image
