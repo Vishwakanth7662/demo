@@ -1,0 +1,93 @@
+# Note: Synchronized Workflow, if you want to edit this please do so in the following repository: https://github.com/Combyne-Ag/github-actions
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      awsRegion:
+        required: false
+        type: string
+        default: us-east-1
+    secrets:
+      AWS_ACCESS_KEY:
+        required: true
+      AWS_SECRET_KEY:
+        required: true
+      SERVICE_NAME:
+        required: true
+      ECS_CLUSTER:
+        required: true
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2.0.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-region: ${{ inputs.awsRegion }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1.6.0
+
+      - name: Download Image Name
+        uses: actions/download-artifact@v3
+        with:
+          name: docker-image-name-${{ secrets.SERVICE_NAME }}
+
+      - name: Set Image Name
+        run: |
+          # Read the image name from the file 
+          while read line; do
+            imageName=$line
+          done < .docker-image-name-${{ secrets.SERVICE_NAME }}
+
+          echo "Image Name: $imageName"
+          echo "IMAGE_NAME=$imageName" >> $GITHUB_ENV
+
+      - name: Set Container/Service Name
+        run: |
+          if [ "${{ inputs.environment }}" == "release" ]; then
+            echo "CONTAINER_SERVICE_NAME=combyne-prod-${{ secrets.SERVICE_NAME }}" >> $GITHUB_ENV
+          else 
+            echo "CONTAINER_SERVICE_NAME=combyne-${{ inputs.environment }}-${{ secrets.SERVICE_NAME }}" >> $GITHUB_ENV
+          fi
+
+      - name: Download Image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: ${{ env.IMAGE_NAME }}
+
+      - name: Push image to Amazon ECR
+        run: |
+          # Push Docker image to ECR
+          docker push ${{ env.IMAGE_NAME }}
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@61b0c00c3743b70987a73a1faf577f0d167d1574
+        with:
+          task-definition: .aws/${{ secrets.SERVICE_NAME }}/${{ inputs.environment}}-task-definition.json
+          container-name: ${{ env.CONTAINER_SERVICE_NAME }}
+          image: ${{ env.IMAGE_NAME }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.CONTAINER_SERVICE_NAME }}
+          cluster: ${{ secrets.ECS_CLUSTER }}
+          wait-for-service-stability: true
