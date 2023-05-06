@@ -62,14 +62,14 @@ jobs:
           if [ "${{ inputs.environment }}" == "release" ]; then
             echo "CONTAINER_SERVICE_NAME=combyne-prod-${{ secrets.SERVICE_NAME }}" >> $GITHUB_ENV
           else 
-            echo "CONTAINER_SERVICE_NAME=combyne-${{ inputs.environment }}-${{ secrets.SERVICE_NAME }}" >> $GITHUB_ENV
+            echo "CONTAINER_SERVICE_NAME=combyne-${{ secrets.SERVICE_NAME }}" >> $GITHUB_ENV
           fi
 
       - name: Create and save Image name
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ env.CONTAINER_SERVICE_NAME }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: "latest"
         run: |
           imageName="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           echo "Image $imageName"
@@ -91,7 +91,7 @@ jobs:
           path: .docker-image-name-${{ secrets.SERVICE_NAME}}
 
       - name: Build and tag Docker image
-        run: docker build -t ${{ env.IMAGE_NAME }} -f deploy/${{ secrets.SERVICE_NAME }}/${{ inputs.environment }}/Dockerfile .
+        run: docker build -t ${{ env.IMAGE_NAME }} -f Dockerfile .
 
       # Doesn't upload the image if we are not deploying
       - name: Upload Image
